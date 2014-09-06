@@ -1,0 +1,44 @@
+import redis
+import json
+import pycurl
+import cStringIO
+from xml.dom import minidom
+#https://docs.python.org/2/library/xml.dom.minidom.html
+
+#THIS SCRIPT MUST BE RUN AFTER getAllLeagues!
+
+RPROD = redis.StrictRedis(host='localhost', port = 6379, db = 0)
+TEAMS = 'teams'
+LEAGUES = 'leagues'
+API_KEY = 'QUKJIFDZQOXAVSJLMIGQNDQHAVBWBQNBEJYNSFGAKBAHWBBXZU'
+
+#reads the text within each XMl tag -- think of it as reading the actual values that are in text format
+#So, for "Website" -- this function will read the actual value associated with the Website tag, which will 
+# be the url
+def getText(nodelist):
+	rc = []
+	for node in nodelist:
+		if node.nodeType == node.TEXT_NODE:
+			rc.append(node.data)
+	return ''.join(rc)
+
+
+#abstracted function to make an API call - takes as input the URL
+def makeAPICall(url):
+	buf = cStringIO.StringIO()
+	c = pycurl.Curl()
+	c.setopt(c.URL, url)
+	c.setopt(c.WRITEFUNCTION, buf.write)
+	c.perform()
+	xmldoc = minidom.parseString(buf.getvalue())
+	#print buf.getvalue()
+	buf.close()
+	return xmldoc
+
+def start():
+	teamNames = RPROD.hkeys(TEAMS) #retrieve all team names
+	pipe = RPROD.pipeline()
+	if teamNames != None:
+		for name in teamNames:
+			pipe.hget(TEAMS, name)
+			
